@@ -504,48 +504,67 @@
 
     const sidebar = document.getElementById('sidebar');
 
-    function parseData() {
-        if (typeof rawData === 'undefined') {
-            console.error("ERROR: words.js not loaded!");
-            return;
-        }
-        const saved = localStorage.getItem('wortschatz_learned');
-        if (saved) learnedIds = new Set(JSON.parse(saved));
-        
-        const seen = new Set();
-        let idCounter = 1;
-        vocabData = rawData.map(line => {
-            const parts = line.split("|").map(p => p.trim());
-            if(parts.length < 6 || seen.has(parts[0])) return null;
-            seen.add(parts[0]);
+function parseData() {
+    if (typeof rawData === 'undefined') {
+        console.error("ERROR: words.js not loaded!");
+        return;
+    }
+    const saved = localStorage.getItem('wortschatz_learned');
+    if (saved) learnedIds = new Set(JSON.parse(saved));
+    
+    vocabData = rawData
+        .map(line => {
+            const card = parseLineToCard(line);
+            if (!card) return null;
             
-            const vars = parts[5].split("+").map(v => {
-                const vParts = v.split(":").map(s => s.trim());
-                let exRaw = vParts[2] || "";
-                let exDe = exRaw; let exEn = "";
-                if (exRaw.includes(" - ")) { 
-                    const splitEx = exRaw.split(" - "); 
-                    exDe = splitEx[0]; 
-                    exEn = splitEx[1]; 
-                }
-                return { word: vParts[0], desc: vParts[1] || "", ex_de: exDe, ex_en: exEn };
-            });
-            
-            const exParts = parts[4].split("~").map(e => e.trim());
             return {
-                id: idCounter++, 
-                word: parts[0], 
-                meaning: parts[1], 
-                conjugation: parts[2], 
-                usage_desc: parts[3],
-                examples: [{ de: exParts[0], en: exParts[1] || "" }], 
-                variations: vars, 
+                id: vocabData.length + 1,  // auto-increment ID
+                word: card.root,
+                meaning: card.meaning,
+                conjugation: card.conjugation,
+                usage_desc: card.note,
+                examples: [{de: card.deExample, en: card.enExample}],
+                variations: [],  // could parse from variations field if present
                 type: "Verb"
             };
-        }).filter(item => item !== null);
-        
-        updateStats();
+        })
+        .filter(item => item !== null);
+    
+    updateStats();
+}
+
+function parseLineToCard(line) {
+    if (!line || typeof line !== "string") return null;
+    
+    const parts = line.split(" | ");
+    if (parts.length < 5) return null;
+    
+    const root        = parts[0].trim();
+    const meaning     = parts[1].trim();
+    const conjugation = parts[2].trim();
+    const note        = parts[3].trim();
+    const exPair      = parts[4].trim();
+    
+    let deExample = "";
+    let enExample = "";
+    if (exPair.includes(" ~ ")) {
+        const exParts = exPair.split(" ~ ");
+        deExample = exParts[0].trim();
+        enExample = exParts[1].trim();
+    } else {
+        deExample = exPair;
     }
+    
+    return {
+        root: root,
+        meaning: meaning,
+        conjugation: conjugation,
+        note: note,
+        deExample: deExample,
+        enExample: enExample
+    };
+}
+
 
     function toggleLearned(id, event) {
         event.stopPropagation(); 
